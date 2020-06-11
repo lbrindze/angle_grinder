@@ -16,6 +16,11 @@ $ source env_angle_grinder/bin/activate
 $ pip install -r requirements.txt
 ```
 
+Start the server by running:
+```
+ uvicorn main:app --reload
+ ```
+
 Load your dataset into a zarr store using the api directly!  Configure redis host and port using envvars `REDIS_HOST` and `REDIS_PORT`
 to load data run the following replacing the contrived names with actual names you want
 `curl -X POST -F netcdf_file=@PATH_TO_FILE.nc  http://localhost:8000/TEST_DATA_NAME/load_netcdf`

@@ -14,9 +14,15 @@ def resize(data_tile: xr.DataArray) -> np.ndarray:
     return np.array(img)
 
 
-def normalize(data_tile: xr.DataArray) -> np.ndarray:
-    diff_from_min = data_tile - data_tile.min().values
-    data_tile_range = data_tile.max().values - data_tile.min().values
+def normalize(
+    data_tile: xr.DataArray, max_val=None, min_val=None
+) -> np.ndarray:
+    if max_val is None:
+        max_val = data_tile.max().values
+    if min_val is None:
+        min_val = data_tile.min().values
+    diff_from_min = data_tile - max_val
+    data_tile_range = max_val - min_val
     return np.floor(255 * diff_from_min / data_tile_range).astype(np.uint8)
 
 

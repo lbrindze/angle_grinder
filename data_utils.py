@@ -6,6 +6,8 @@ from zarr import RedisStore
 
 import redis
 
+from helpers import run_async
+
 redis_pool = redis.ConnectionPool(
     host=os.environ.get("REDIS_HOST", "127.0.0.1"),
     port=os.environ.get("REDIS_PORT", 6379),
@@ -24,6 +26,11 @@ def get_store(prefix):
         _stores[prefix] = store
 
     return store
+
+
+@run_async
+def load_da(prefix, var):
+    return xr.open_zarr(store=get_store(prefix))[var]
 
 
 @lru_cache(128)

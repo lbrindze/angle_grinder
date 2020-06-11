@@ -1,12 +1,13 @@
 import io
 import numpy as np
 import xarray as xr
-import png
+import cv2
 from PIL import Image
 
 from typing import Iterable, Callable
 
 import colormap
+from helpers import run_async
 
 
 def resize(data_tile: xr.DataArray) -> np.ndarray:
@@ -53,29 +54,28 @@ def apply_colormap(color_map: Iterable[int]) -> Callable[[int], int]:
     return mapper
 
 
+@run_async
 def encode_as_png(vals: np.ndarray, colorize=None) -> io.BytesIO:
     if colorize is None or colorize is "":
         pixels = vals.astype(np.uint8)
-        mode = "L"
     else:
         try:
             mapping = getattr(colormap, colorize)
             pixels = (
                 apply_colormap(mapping)(vals)
-                .reshape(512, 512 * 3)
+                .reshape(512, 512, 3)
                 .astype(np.uint8)
             )
-            mode = "RGB"
         except AttributeError:
             print(f"No colormap with name {colorize} exists")
             pixels = vals.astype(np.uint8)
-            mode = "L"
 
-    img = png.from_array(pixels, mode=mode)
-    buf = io.BytesIO()
-    img.write(buf)
-    buf.seek(0)
-    return buf
+    is_success, img_bytes = cv2.imencode(".png", pixels)
+    if not is_success:
+        raise Exception("Could not encode!")
+
+    io_buffer = io.BytesIO(img_bytes)
+    return io_buffer
 
 
 def create_color_gradient(from_color, to_color, steps) -> np.ndarray:

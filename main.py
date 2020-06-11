@@ -1,16 +1,13 @@
 import mercantile
-import os
-import redis
 import xarray as xr
 import netCDF4
 
+from async_lru import alru_cache
 from fastapi import FastAPI, File
 from fastapi.responses import StreamingResponse
-from functools import lru_cache
-from zarr import RedisStore
 
 from image_utils import encode_as_png, resize, normalize
-from data_utils import get_store, get_absolute_min_max, data_tile_meta
+from data_utils import load_da, get_absolute_min_max, data_tile_meta, get_store
 
 
 app = FastAPI()
@@ -28,17 +25,20 @@ async def get_variables(prefix: str):
     return {"variables": [var for var in data_tile.variables]}
 
 
-@app.get("/{prefix}/{var}/{z}/{x}/{y}.png")
-def get_tile(
+@alru_cache(maxsize=32)
+async def get_cached_tile_buffer(
     prefix: str, var: str, z: int, x: int, y: int, colorize: str = None
 ):
-    print("Request Received")
+    print("calculate tile metadata")
     tile_meta = mercantile.Tile(x=x, y=y, z=z)
+    print("getting bounds")
     min_lon, min_lat, max_lon, max_lat = mercantile.bounds(tile_meta)
 
-    # possible i/o bound could asyncify with threadpool
-    ds = xr.open_zarr(store=get_store(prefix))[var]
-    data_tile = ds.sel(
+    print("loading data array")
+    da = await load_da(prefix, var)
+
+    print("indexing tile selection")
+    data_tile = da.sel(
         longitude=slice(min_lon, max_lon), latitude=slice(max_lat, min_lat)
     )
 
@@ -50,9 +50,17 @@ def get_tile(
         normalize(data_tile, max_val=abs_max, min_val=abs_min)
     )
 
-    # rgb encode
     print("encoding png")
-    buf = encode_as_png(normalized_tile, colorize=colorize)
+    return await encode_as_png(normalized_tile, colorize=colorize)
+
+
+@app.get("/{prefix}/{var}/{z}/{x}/{y}.png")
+async def get_tile(
+    prefix: str, var: str, z: int, x: int, y: int, colorize: str = None
+):
+    print("Request Received")
+    buf = await get_cached_tile_buffer(prefix, var, z, x, y, colorize=colorize)
+
     print("streaming response")
     return StreamingResponse(buf, media_type="image/png")
 

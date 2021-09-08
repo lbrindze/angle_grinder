@@ -8,7 +8,7 @@ monotonic==1.5
 numcodecs==0.6.3
 numpy==1.18.5
 pandas==1.0.4
-Pillow==7.1.2
+Pillow==8.3.2
 pypng==0.0.20
 python-dateutil==2.8.1
 pytz==2020.1
